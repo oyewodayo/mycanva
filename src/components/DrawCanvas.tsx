@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom';
 import Draggable from 'react-draggable';
-import { BsEraser, BsFillEraserFill } from 'react-icons/bs';
+import { BsEraser, BsFillEraserFill, BsSteam } from 'react-icons/bs';
 import { GrDrag } from 'react-icons/gr';
-import { IoPencil } from 'react-icons/io5';
+import { IoPencil, IoSettings } from 'react-icons/io5';
 import { TbBackground } from 'react-icons/tb';
 
 interface DrawCanvasProps{
@@ -16,10 +16,17 @@ const DrawCanvas = ({initialColor='black',initialLineWidth=4}:DrawCanvasProps) =
     const pencilButtonRef = useRef<HTMLButtonElement | null>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [isErasing, setIsErasing] = useState(false);
+    const [activeButton, setActiveButton] = useState<string | null>(null);
     const [penColor, setPenColor] = useState<string>(initialColor);
     const [penSize, setPenSize] = useState(initialLineWidth);
     const [showControls, setShowControls] = useState(false);
     const [controlsPosition, setControlsPosition] = useState({ top: 0, left: 0 });
+    const [drawerPanelOption, setDrawerPanelOption] = useState<string>("horizontal");
+
+    const handleButtonClick = (buttonName:string) => {
+        setActiveButton(buttonName);
+      };
+
 
     const toggleControls = () => {
         if (pencilButtonRef.current) {
@@ -199,71 +206,76 @@ const DrawCanvas = ({initialColor='black',initialLineWidth=4}:DrawCanvasProps) =
     
         </canvas>
         <Draggable>
-                <div className='h-[80%] rounded border w-10 absolute right-0 m-2 bg-white'>
-                    <div className="flex flex-col gap-3 my-3 py-2 text-center items-center">
-                        <button className='cursor-move p-2 -mt-3 rounded text-lg hover:bg-blue-500 hover:text-white'>
-                            <GrDrag/>
-                        </button>
+            <div className={`${drawerPanelOption==="vertical"?'h-[80%] flex flex-col justify-between w-10 place-items-center text-center':'w-[60%] h-[12] flex justify-between place-items-center'}  rounded border absolute right-0 m-2 bg-white`}>
+                <div className={`flex ${drawerPanelOption==="vertical"?'flex-col  my-3':'flex-row '} gap-3 py-2 text-center items-center`}>
+                    <button className={`cursor-move p-2 ${drawerPanelOption==="vertical"?'-mt-3':'ml-2'} rounded text-lg hover:bg-blue-500 hover:text-white`}>
+                        <GrDrag/>
+                    </button>
 
-                        <button className='cursor-pointer p-2 rounded text-lg hover:bg-blue-500 hover:text-white'>
-                            <TbBackground/>
-                        </button>
+                    <button onClick={()=>{handleButtonClick('background')}} className={`cursor-pointer p-2 rounded text-lg hover:bg-blue-500 ${activeButton=="background" ? 'bg-blue-200' : ''} hover:text-white`}>
+                        <TbBackground/>
+                    </button>
 
-                        <div className='relative'>
+                    <div className='relative'>
                         <button 
+                        
                             ref={pencilButtonRef}
-                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-blue-500 hover:text-white p-2 ${!isErasing ? 'bg-blue-200' : ''}`}
-                            onClick={() => { setToDraw(); toggleControls(); }}
+                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-blue-500 hover:text-white p-2 ${activeButton==="pencil" ? 'bg-blue-200' : ''} `}
+                            onClick={() => { setToDraw(); toggleControls(); handleButtonClick("pencil") }}
                             aria-label="Pencil tool"
                         >
-                            <IoPencil />
+                        <IoPencil />
                         </button>
                         {showControls && (
-                                <div className='absolute -left-32 top-0 p-1 rounded bg-slate-400 w-32'>
-                                    <div>
-                                        <input 
-                                            type="color" 
-                                            name="pen_color" 
-                                            id="pen_color" 
-                                            value={penColor}
-                                            onChange={handleColorChange}
-                                            className="w-full rounded"
-                                        />
-                                    </div>
-                                    <div className='flex mt-2'>
-                                        <input 
-                                            type="range" 
-                                            min={1} 
-                                            max={20}
-                                            name="pen_size" 
-                                            id="pen_size" 
-                                            value={penSize}
-                                            onChange={handleSizeChange}
-                                            className="w-full"
-                                        />
-                                        <span className='text-sm'>{penSize}</span>
-                                    </div>
+                            <div className={`absolute ${drawerPanelOption==="vertical"?'-left-32 -top-4':'-left-11 top-11'}  p-1 rounded bg-slate-400 w-32`}>
+                                <div>
+                                    <input 
+                                        type="color" 
+                                        name="pen_color" 
+                                        id="pen_color" 
+                                        value={penColor}
+                                        onChange={handleColorChange}
+                                        className="w-full rounded outline-none bg-none fill-none"
+                                    />
                                 </div>
-                            )}
+                                <div className='flex mt-2'>
+                                    <input 
+                                        type="range" 
+                                        min={1} 
+                                        max={20}
+                                        name="pen_size" 
+                                        id="pen_size" 
+                                        value={penSize}
+                                        onChange={handleSizeChange}
+                                        className="w-full"
+                                    />
+                                    <span className='text-sm'>{penSize}</span>
+                                </div>
                             </div>
-                        <button 
-                            className={`cursor-pointer text-lg p-2 rounded hover:bg-blue-500 hover:text-white ${isErasing ? 'bg-blue-200' : ''}`}
-                            onClick={() => { setToErase(); setShowControls(false); }}
-                            aria-label="Eraser tool"
-                        >
-                            <BsEraser />
-                        </button>
-                        <button 
-                            className={`cursor-pointer text-lg p-2 rounded hover:bg-blue-500 hover:text-white`}
-                            onClick={() => { setIsErasing(false); clearCanvas(); }}
-                            aria-label="Eraser tool"
-                        >
-                            <BsFillEraserFill />
-                        </button>
-                       
+                        )}
                     </div>
+                    <button 
+                        className={`cursor-pointer text-lg p-2 rounded  hover:bg-blue-500 hover:text-white ${activeButton=="eraser" ? 'bg-blue-200' : ''}`}
+                        onClick={() => { setToErase(); setShowControls(false); handleButtonClick("eraser") }}
+                        aria-label="Eraser tool"
+                    >
+                        <BsEraser />
+                    </button>
+                    <button 
+                        className={`cursor-pointer text-lg p-2 rounded hover:bg-blue-500 ${activeButton=="clear_canva" ? 'bg-blue-200' : ''} hover:text-white`}
+                        onClick={() => { clearCanvas(); handleButtonClick("clear_canva") }}
+                        aria-label="Eraser tool"
+                    >
+                        <BsFillEraserFill />
+                    </button>
                 </div>
-            </Draggable>
+                <div>
+                    <button onClick={()=>{handleButtonClick("settings")}} className={`${activeButton=="settings" ? 'bg-blue-200' : ''} ${drawerPanelOption==="vertical"?'mb-2':'mr-3'} left-0 cursor-pointer text-lg p-2 rounded hover:bg-blue-500`}>
+                        <IoSettings/>
+                    </button>
+                </div>
+            </div>
+        </Draggable>
     </div>
         
   )
