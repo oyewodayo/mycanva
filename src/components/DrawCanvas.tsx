@@ -9,8 +9,8 @@ const DrawCanvas = () => {
     useEffect(()=>{
         const canvas = canvasRef.current;
         if (canvas) {            
-            canvas.width = 900;
-            canvas.height = 900;
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
             const context = canvas.getContext("2d");
             if (context) {
                 
@@ -20,47 +20,87 @@ const DrawCanvas = () => {
             }
             contextREf.current = context;
         }
-    
-    }, [])
 
-    const startDrawing = (event:React.MouseEvent<HTMLCanvasElement>)=>{
-        const {nativeEvent} = event;
-        const {offsetX, offsetY} = nativeEvent;
-        contextREf.current?.beginPath();
-        contextREf.current?.moveTo(offsetX, offsetY);
-        contextREf.current?.lineTo(offsetX, offsetY);
-        contextREf.current?.stroke();
+            
+        const preventDefault = (e: Event) => {
+            e.preventDefault();
+        };
+
+        document.body.addEventListener('touchstart', preventDefault, { passive: false });
+        document.body.addEventListener('touchmove', preventDefault, { passive: false });
+
+        return () => {
+            document.body.removeEventListener('touchstart', preventDefault);
+            document.body.removeEventListener('touchmove', preventDefault);
+        };
+    
+    }, []);
+
+    const getCoordinates = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+        if ('touches' in event) {
+            const touch = event.touches[0];
+            const rect = canvasRef.current?.getBoundingClientRect();
+            return {
+                offsetX: touch.clientX - (rect?.left || 0),
+                offsetY: touch.clientY - (rect?.top || 0)
+            };
+        } else {
+            return {
+                offsetX: event.nativeEvent.offsetX,
+                offsetY: event.nativeEvent.offsetY
+            };
+        }
+    };
+
+    const startDrawing = (event:React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>)=>{
+        event.preventDefault();
+        const { offsetX, offsetY } = getCoordinates(event);
+        
+        if (contextREf.current) {
+            
+            contextREf.current?.beginPath();
+            contextREf.current?.moveTo(offsetX, offsetY);
+        }
+
         setIsDrawing(true);
 
-        nativeEvent.preventDefault();
+       
     }
 
-    const draw = (event:React.MouseEvent<HTMLCanvasElement>)=>{
-        const {nativeEvent} = event;
-        if (!isDrawing) {
-            return;
+    const draw = (event:React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>)=>{
+        event.preventDefault();
+        if (!isDrawing) return;
+
+         const { offsetX, offsetY } = getCoordinates(event); 
+        if (contextREf.current) {
+            
+            contextREf.current?.lineTo(offsetX, offsetY);
+            contextREf.current?.stroke();
         }
-        const {offsetX, offsetY} = nativeEvent; 
-        contextREf.current?.lineTo(offsetX, offsetY);
-        contextREf.current?.stroke();
-        nativeEvent.preventDefault();
+       
     }
 
-    const stopDrawing = ()=>{
-        contextREf.current?.closePath();
-        setIsDrawing(false);
+    const stopDrawing = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>)=>{
+        event.preventDefault();
+        if (isDrawing && contextREf.current) {
+            
+            contextREf.current?.closePath();
+            setIsDrawing(false);
+        }
     }
   return (
   
     <canvas 
-    className='bg-black border-2 border-black'
-       id="canvas" 
-        ref={canvasRef} 
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={stopDrawing}
-        onMouseOut={stopDrawing}
-        onMouseLeave={stopDrawing}>
+    className="w-full h-screen"
+            ref={canvasRef}
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={stopDrawing}
+            onMouseOut={stopDrawing}
+            onTouchStart={startDrawing}
+            onTouchMove={draw}
+            onTouchEnd={stopDrawing}
+        >
     
     </canvas>
            
