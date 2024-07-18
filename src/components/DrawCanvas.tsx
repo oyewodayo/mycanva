@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom';
 import Draggable from 'react-draggable';
-import { BsEraser } from 'react-icons/bs';
+import { BsEraser, BsFillEraserFill } from 'react-icons/bs';
 import { GrDrag } from 'react-icons/gr';
 import { IoPencil } from 'react-icons/io5';
 import { TbBackground } from 'react-icons/tb';
@@ -175,6 +175,13 @@ const DrawCanvas = ({initialColor='black',initialLineWidth=4}:DrawCanvasProps) =
         };
     }, [draw]);
 
+    const clearCanvas = ()=>{
+        if (contextRef.current) {
+            
+            contextRef.current.clearRect(0, 0, contextRef.current.canvas.width,contextRef.current.canvas.height);
+            setIsDrawing(false);
+        }
+    }
 
   return (
     <div className='flex h-screen relative'>
@@ -194,7 +201,7 @@ const DrawCanvas = ({initialColor='black',initialLineWidth=4}:DrawCanvasProps) =
         <Draggable>
                 <div className='h-[80%] rounded border w-10 absolute right-0 m-2 bg-white'>
                     <div className="flex flex-col gap-3 my-3 py-2 text-center items-center">
-                        <button className='cursor-move p-2 rounded text-lg hover:bg-blue-500 hover:text-white'>
+                        <button className='cursor-move p-2 -mt-3 rounded text-lg hover:bg-blue-500 hover:text-white'>
                             <GrDrag/>
                         </button>
 
@@ -220,10 +227,10 @@ const DrawCanvas = ({initialColor='black',initialLineWidth=4}:DrawCanvasProps) =
                                             id="pen_color" 
                                             value={penColor}
                                             onChange={handleColorChange}
-                                            className="w-full"
+                                            className="w-full rounded"
                                         />
                                     </div>
-                                    <div>
+                                    <div className='flex mt-2'>
                                         <input 
                                             type="range" 
                                             min={1} 
@@ -234,6 +241,7 @@ const DrawCanvas = ({initialColor='black',initialLineWidth=4}:DrawCanvasProps) =
                                             onChange={handleSizeChange}
                                             className="w-full"
                                         />
+                                        <span className='text-sm'>{penSize}</span>
                                     </div>
                                 </div>
                             )}
@@ -244,6 +252,13 @@ const DrawCanvas = ({initialColor='black',initialLineWidth=4}:DrawCanvasProps) =
                             aria-label="Eraser tool"
                         >
                             <BsEraser />
+                        </button>
+                        <button 
+                            className={`cursor-pointer text-lg p-2 rounded hover:bg-blue-500 hover:text-white`}
+                            onClick={() => { setIsErasing(false); clearCanvas(); }}
+                            aria-label="Eraser tool"
+                        >
+                            <BsFillEraserFill />
                         </button>
                        
                     </div>
