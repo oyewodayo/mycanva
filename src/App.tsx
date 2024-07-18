@@ -1,4 +1,4 @@
-import './App.css'
+
 import DrawCanvas from './components/DrawCanvas'
 
 function App() {
