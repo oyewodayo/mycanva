@@ -1,3 +1,37 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom CSS */
+.custom-range {
+    -webkit-appearance: none; /* Remove default WebKit styling */
+    background: #ddd; /* Track color */
+    border-radius: 5px; /* Rounded corners */
+    outline: none; /* Remove outline */
+  }
+  
+  .custom-range::-webkit-slider-thumb {
+    -webkit-appearance: none; /* Remove default styling in WebKit browsers */
+    width: 9px; /* Thumb width */
+    height: 9px; /* Thumb height */
+    background: #4a90e2; /* Thumb color */
+    border-radius: 50%; /* Round thumb */
+    cursor: pointer; /* Pointer cursor */
+  }
+  
+  .custom-range::-moz-range-thumb {
+    width: 9px; /* Thumb width */
+    height: 9px; /* Thumb height */
+    background: #4a90e2; /* Thumb color */
+    border-radius: 50%; /* Round thumb */
+    cursor: pointer; /* Pointer cursor */
+  }
+  
+  .custom-range::-ms-thumb {
+    width: 9px; /* Thumb width */
+    height: 9px; /* Thumb height */
+    background: #4a90e2; /* Thumb color */
+    border-radius: 50%; /* Round thumb */
+    cursor: pointer; /* Pointer cursor */
+  }
+  
