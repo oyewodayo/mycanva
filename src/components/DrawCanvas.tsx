@@ -1,12 +1,12 @@
-import React, { createElement, useCallback, useEffect, useRef, useState } from 'react'
-import ReactDOM from 'react-dom';
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Draggable from 'react-draggable';
-import { BsArrowDownCircle, BsCloudDownloadFill, BsEraser, BsFillEraserFill } from 'react-icons/bs';
+import { BsCloudDownloadFill, BsEraser, BsFillEraserFill } from 'react-icons/bs';
 import { GrDrag } from 'react-icons/gr';
-import { IoAddCircle, IoImage, IoPencil, IoSettings, IoSquare, IoTextSharp, IoTriangle } from 'react-icons/io5';
+import { IoAddCircle, IoImage, IoPencil, IoSettings, IoSquare, IoSquareOutline, IoTextSharp, IoTriangle, IoTriangleOutline } from 'react-icons/io5';
 import { TbBackground } from 'react-icons/tb';
 import CursorCircle from './CursorCircle';
 import { DrawCanvasProps } from '../Types';
+import { BiCircle, BiRectangle, BiSolidCircle, BiSolidRectangle, BiSolidStar, BiStar } from 'react-icons/bi';
 
 
 const shapes = [<IoTriangle key="triangle" />, <IoAddCircle key="addCircle" />, <IoSquare key="square" />];
@@ -25,78 +25,80 @@ function shuffleArray<T>(array: T[]): T[] {
 const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialBackgroundColor="#FFFFFF",initialLineWidth=2}:DrawCanvasProps) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const contextRef = useRef<CanvasRenderingContext2D | null>(null);
-    const [windowScroll, setWindowScroll]  = useState<boolean>(canvasWindowScroll);
-    const [gridBackgroud, setGridBackground] = useState<boolean>(false);
-    const pencilButtonRef = useRef<HTMLButtonElement | null>(null);
+    const [windowScroll, setWindowScroll] = useState<boolean>(canvasWindowScroll);
+    const [gridBackground, setGridBackground] = useState<boolean>(false);
     const [isDrawing, setIsDrawing] = useState(false);
     const [isErasing, setIsErasing] = useState(false);
-    const [activeButton, setActiveButton] = useState<string | null>(null);
+    const [activeButton, setActiveButton] = useState<string>("pencil");
     const [penColor, setPenColor] = useState<string>(initialPenColor);
     const [backgroundColor, setBackgroundColor] = useState<string>(initialBackgroundColor);
     const [penSize, setPenSize] = useState(initialLineWidth);
-    const [showControls, setShowControls] = useState(false);
+    const [penControl, setPenControl] = useState(false);
     const [backgroundControl, setBackgroundControl] = useState(false);
     const [drawerPanelOption, setDrawerPanelOption] = useState<string>("vertical");
-    const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+    const [currentShape, setCurrentShape] = useState<string | null>(null);
+
     const containerRef = useRef<HTMLDivElement>(null);
     const lastPositionRef = useRef<{x: number, y: number} | null>(null);
     const isScrollingRef = useRef(false);
+    
     const [currentShapeIndex, setCurrentShapeIndex] = useState(0);
     const [shuffledShapes, setShuffledShapes] = useState<JSX.Element[]>([]);
+
+    const pencilButtonRef = useRef<HTMLButtonElement | null>(null);
+
+    const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+   
+    const [coordinates, setCoordinate] = useState<object>({x:0,y:0,offsetX:0,offsetY:0});
+    const [shapeControl, setShapeControl] = useState(false);
   
 
 
     useEffect(() => {
-      const shuffled = shuffleArray([...shapes]);
-      setShuffledShapes(shuffled);
-  
-      const interval = setInterval(() => {
-        setCurrentShapeIndex((prevIndex) => (prevIndex + 1) % shuffled.length);
-      }, 300); // Change the interval time as needed (1000ms = 1s)
-  
-      return () => clearInterval(interval); // Cleanup interval on component unmount
+        const shuffled = shuffleArray([...shapes]);
+        setShuffledShapes(shuffled);
+
+        const interval = setInterval(() => {
+            setCurrentShapeIndex((prevIndex) => (prevIndex + 1) % shuffled.length);
+        }, 300);
+
+        return () => clearInterval(interval);
     }, []);
     
   
-    const handleButtonClick = (buttonName:string) => {
+    const handleButtonClick = (buttonName: string) => {
         setActiveButton(buttonName);
-        if (buttonName !="settings") {
-            setShowSettingsDropdown(false);
-        }
-        if (buttonName ==="pencil") {
-            setIsDrawing(false);
+        setIsDrawing(false);
+        setIsErasing(false);
+
+        if (buttonName === "pencil") {
+            setToDraw();
+        } else if (buttonName === "eraser") {
+            setToErase();
+        } else if (buttonName === "shape_tools") {
+            setShapeControl(!shapeControl);
+        } else if (buttonName.includes("triangle") || buttonName.includes("square") || 
+                   buttonName.includes("rectangle") || buttonName.includes("circle") || 
+                   buttonName.includes("star")) {
+            setCurrentShape(buttonName);
+            setShapeControl(false);
         }
 
-        if (buttonName !="background") {
-            // setBackgroundControl(false);
-            
-        }
-        if (buttonName ==="background") {
-            setBackgroundControl(true);
-            
-        }
-        if (buttonName !="shape_tools") {
-            setBackgroundControl(false);
-            // setShowControls(!showControls);
-            
-        }
-        if (buttonName ==="shape_tools") {
-        
-            // setShowControls(!showControls);
-            
-        }
-      };
-
-
-    const toggleControls = () => {
-        setShowControls(!showControls);
+        setBackgroundControl(buttonName === "background");
+        setPenControl(buttonName === "pencil");
     };
 
+
+    const togglePenControl = () => {
+        setPenControl(!penControl);
+    };
+
+
     const toggleBackroundControls = () => {
-        console.log(backgroundColor)
+      
         setBackgroundControl(!backgroundControl);
-        console.log(backgroundControl)
-        setShowControls(false)
+        console.log(!backgroundControl)
+        setPenControl(false)
     };
 
 
@@ -105,10 +107,9 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
         console.log(e.target.value);
         setBackgroundColor(e.target.value);
     }
+
     const handleSetWindowScroll = (e: React.ChangeEvent<HTMLInputElement>) => {
         setWindowScroll(e.target.checked);
-
-        console.log(e.target.checked)
     };
 
 
@@ -138,10 +139,9 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
         const canvas = canvasRef.current;
         if (canvas) {            
             canvas.width = (window.innerWidth );  // Set a larger initial width
-            canvas.height = (window.innerHeight);  // Set a larger initial height
+            canvas.height = (window.innerWidth);  // Set a larger initial height
             const context = canvas.getContext("2d");
-            if (context) {
-                
+            if (context) {                
                 context.lineCap = "round";
                 context.strokeStyle = initialPenColor;
                 context.lineWidth = initialLineWidth;
@@ -244,11 +244,14 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
         const rect = canvas.getBoundingClientRect();
         if ('touches' in event) {
             const touch = event.touches[0];
+            setCoordinate({x:touch.clientX,y:touch.clientY})
             return {
                 offsetX: touch.clientX - rect.left + container.scrollLeft,
                 offsetY: touch.clientY - rect.top + container.scrollTop
             };
         } else {
+            setCoordinate({x:event.clientX,y:event.clientY})
+            
             return {
                 offsetX: event.clientX - rect.left + container.scrollLeft,
                 offsetY: event.clientY - rect.top + container.scrollTop
@@ -256,47 +259,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
         }
     };
 
-    const draw = useCallback((event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-        event.preventDefault();
-        console.log("Draw")
-        if (!isDrawing){
-            return;
-        } 
-        
-        document.addEventListener("mousemove",(e)=>{
-            // if (canvasRef.current) {            
-            //     canvasRef.current.style.cursor ="move"
-            // }
-            const x = e.clientX;
-            const y = e.clientY;
-            const xOffsetX = e.offsetX
-            const yOffsetY = e.offsetY
-            console.log("Mouse:",x,y)
-            console.log("Mouse Offset:",xOffsetX,yOffsetY)
-        })
 
-        const { offsetX, offsetY } = getCoordinates(event);
-        if (contextRef.current) {
-            
-            if (lastPositionRef.current && !isScrollingRef.current) {
-                contextRef.current.beginPath();
-                contextRef.current.moveTo(lastPositionRef.current.x, lastPositionRef.current.y);
-                contextRef.current.lineTo(offsetX, offsetY);
-                contextRef.current.imageSmoothingQuality = "high";
-                contextRef.current.stroke();
-                lastPositionRef.current = { x: offsetX, y: offsetY }
-                console.log(lastPositionRef.current);
-                
-                //This part enables you to extend your drawing when it get to the vertical and horizontal end 
-                // and automatically scrolls down or right while drawing
-                if (windowScroll) {                    
-                    resizeCanvasIfNeeded(offsetX, offsetY);
-                    scrollIfNeeded(offsetX, offsetY);
-                }
-            }
-           
-        }
-    }, [isDrawing, getCoordinates, resizeCanvasIfNeeded, scrollIfNeeded]);
 
 
     //
@@ -318,10 +281,9 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
   
 
     const startDrawing = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-       
         event.preventDefault();
         const { offsetX, offsetY } = getCoordinates(event);
-        
+
         if (contextRef.current) {
             contextRef.current.beginPath();
             contextRef.current.moveTo(offsetX, offsetY);
@@ -329,11 +291,6 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
 
         lastPositionRef.current = { x: offsetX, y: offsetY };
         setIsDrawing(true);
-        setShowSettingsDropdown(false);
-        setBackgroundControl(false);
-        setShowControls(false);
-
-        console.log(isDrawing)
     };
 
 
@@ -341,24 +298,12 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
         event.preventDefault();
         if (isDrawing && contextRef.current) {
             contextRef.current.closePath();
-            setIsDrawing(false);
+            setIsDrawing(true);
         }
         lastPositionRef.current = null;
     };
 
-    useEffect(() => {
-        let animationFrameId: number;
 
-        const animate = () => {
-            animationFrameId = requestAnimationFrame(animate);
-        };
-
-        animate();
-
-        return () => {
-            cancelAnimationFrame(animationFrameId);
-        };
-    }, [draw]);
 
     const clearCanvas = ()=>{
         if (contextRef.current) {
@@ -398,19 +343,184 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
         e.preventDefault(); // Prevent default behavior
     };
       
+
+    const drawGrid = ()=>{
+        const canvas = contextRef.current;
+        for (let index = 5; index <= 605; index = index+6) {
+          
+            if (canvas) {
+                canvas?.moveTo(index, 5)
+            canvas?.lineTo(index, window.innerWidth)
+
+            canvas?.moveTo(5, index)
+            canvas?.lineTo(window.innerWidth, index)
+
+            canvas.strokeStyle = "#F0F0F0";
+            canvas?.stroke();
+            }
+            
+        }
+
+        canvas?.beginPath()
+
+        for (let index = 5; index <= window.innerWidth; index = index+30) {
+            if (canvas) {
+                canvas?.moveTo(index, 5)
+                canvas?.lineTo(index, window.innerWidth)
+
+                canvas?.moveTo(5, index)
+                canvas?.lineTo(window.innerWidth, index)
+
+                canvas.strokeStyle = "#c0c0c0";
+                canvas?.stroke();
+            }
+            
+        }
+    }
+
+    // drawGrid()
+
+    const drawShape = useCallback((startX: number, startY: number, endX: number, endY: number) => {
+        if (!currentShape || !contextRef.current) return;
+
+        const ctx = contextRef.current;
+        ctx.beginPath();
+
+        const width = endX - startX;
+        const height = endY - startY;
+
+        switch (currentShape) {
+            case 'triangle':
+            case 'triangle_outline':
+                ctx.moveTo(startX + width / 2, startY);
+                ctx.lineTo(startX, endY);
+                ctx.lineTo(endX, endY);
+                ctx.closePath();
+                break;
+            case 'square_fill':
+            case 'square_stroke':
+                ctx.rect(startX, startY, width, height);
+                break;
+            case 'rectangle_fill':
+            case 'rectangle_stroke':
+                ctx.rect(startX, startY, width, height);
+                break;
+            case 'circle_stroke':
+            case 'circle_fill':
+                const radius = Math.min(Math.abs(width), Math.abs(height)) / 2;
+                ctx.arc(startX + width / 2, startY + height / 2, radius, 0, 2 * Math.PI);
+                break;
+            case 'star':
+                drawStar(ctx, startX + width / 2, startY + height / 2, 5, Math.min(Math.abs(width), Math.abs(height)) / 2, Math.min(Math.abs(width), Math.abs(height)) / 4);
+                break;
+        }
+
+        if (currentShape.includes('fill')) {
+            ctx.fill();
+        } else {
+            ctx.stroke();
+        }
+    }, [currentShape]);
+
+
+    
+    const draw = useCallback((event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+        event.preventDefault();
+        if (!isDrawing) return;
+
+        const { offsetX, offsetY } = getCoordinates(event);
+        if (contextRef.current && lastPositionRef.current) {
+            if (currentShape) {
+                // For shape drawing, we'll use the initial click position and current position
+                drawShape(lastPositionRef.current.x, lastPositionRef.current.y, offsetX, offsetY);
+            } else {
+                // Freehand drawing
+                contextRef.current.lineTo(offsetX, offsetY);
+                contextRef.current.stroke();
+            }
+        }
+    }, [isDrawing, currentShape,getCoordinates, resizeCanvasIfNeeded, scrollIfNeeded, drawShape]);
+
+    const drawStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, spikes: number, outerRadius: number, innerRadius: number) => {
+        let rot = Math.PI / 2 * 3;
+        let x = cx;
+        let y = cy;
+        let step = Math.PI / spikes;
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - outerRadius);
+        for (let i = 0; i < spikes; i++) {
+            x = cx + Math.cos(rot) * outerRadius;
+            y = cy + Math.sin(rot) * outerRadius;
+            ctx.lineTo(x, y);
+            rot += step;
+
+            x = cx + Math.cos(rot) * innerRadius;
+            y = cy + Math.sin(rot) * innerRadius;
+            ctx.lineTo(x, y);
+            rot += step;
+        }
+        ctx.lineTo(cx, cy - outerRadius);
+        ctx.closePath();
+    };
+
+
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            canvas.addEventListener('click', drawShape as any);
+        }
+        return () => {
+            if (canvas) {
+                canvas.removeEventListener('click', drawShape as any);
+            }
+        };
+    }, [drawShape]);
+
+    useEffect(() => {
+        let animationFrameId: number;
+
+        const animate = () => {
+            animationFrameId = requestAnimationFrame(animate);
+        };
+
+        animate();
+
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+        };
+    }, [draw]);
+    
+    /*
+        n= 2 will draw a poligon
+        Addjusting the n will draw different shapes
+        n= 1 line
+        //Poligon
+        inset = 1 and n = 0.5 represent 1 side
+        number of sides = n*2
+        Triangle: inset= 1, n=1.5
+        square: inset= 1, n=2
+        pentagon: inset= 1, n=2.5
+        //Start 
+        inset = 0.5 and n = number of sides of star
+        
+    */
+
+//    drawShape(100,0.5,6)
  
 
   return (
     <div className={`flex relative"`} style={{ backgroundColor: backgroundColor }}>
         <CursorCircle shape={activeButton}/>
     <div className='absolute'>
-        <button  className='text-white bg-black rounded p-1 m-3'>
+        <button  className='text-white bg-black rounded p-1 my-5 mx-3'>
         <BsCloudDownloadFill className='text-xl '/>
         </button>
     </div>
         
    <div ref={containerRef} className={`h-screen overflow-auto`}>
-        <canvas 
+    <canvas 
             className={`${windowScroll?'min-w-full min-h-full':''}`}
             ref={canvasRef}
             onMouseDown={startDrawing}
@@ -421,23 +531,24 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
             onTouchMove={draw}
             onTouchEnd={stopDrawing}
         >
-    
         </canvas>
+
         <Draggable key={"settings"} cancel=".non-draggable">
-            <div className={`${drawerPanelOption==="vertical"?'top-0 h-[65%] flex flex-col justify-between w-10 place-items-center text-center':'w-[55%] h-[12] flex justify-between place-items-center'} rounded border absolute right-0 m-2 bg-white`}>
-                <div className={`flex ${drawerPanelOption==="vertical"?'flex-col  my-3':'flex-row '} gap-3 py-1 text-center items-center`}>
-                    <button className={`cursor-move p-2 ${drawerPanelOption==="vertical"?'-mt-3':'ml-2'} rounded text-lg hover:bg-blue-500 hover:text-white`}>
-                        <GrDrag/>
-                    </button>
+            <div className={`${drawerPanelOption==="vertical"?'top-12 h-[65%] flex flex-col justify-between w-10 place-items-center text-center':'lg:w-[45%] md:w-[55%] sm:w-[100vw] w-[100vw] h-[12] flex justify-between place-items-center top-1 left-10'} rounded border absolute m-2 bg-white`}>
+                <button className={`cursor-move p-2 ${drawerPanelOption==="vertical"?'':'ml-2'} rounded text-lg hover:bg-black hover:text-white`}>
+                    <GrDrag/>
+                </button>
+                <div className={`flex ${drawerPanelOption==="vertical"?'flex-col':'flex-row'} gap-3 py-1 text-center items-center`}>
+                   
                     <div className="relative">
                         <button 
-                        onClick={()=>{ setBackgroundControl(!backgroundControl);handleButtonClick('background')}} 
+                        onClick={()=>{ toggleBackroundControls();handleButtonClick('background')}} 
                         onTouchStart={()=>{ toggleBackroundControls();handleButtonClick('background')}} 
-                        className={`cursor-pointer p-2 rounded text-lg hover:bg-blue-500 ${activeButton=="background" ? 'bg-blue-200' : ''} hover:text-white`}>
+                        className={`cursor-pointer p-2 rounded text-lg hover:bg-black hover:text-white ${activeButton=="background" ? 'bg-black/60 text-white' : ''}`}>
                             <TbBackground/>
                         </button>
-                        {activeButton=="background"  && (
-                            <div className={`absolute ${drawerPanelOption==="vertical"?'right-10 -top-0.5':'-left-11 top-11'}  p-1 rounded bg-blue-200 w-32`}>
+                        {backgroundControl && (
+                            <div className={`absolute ${drawerPanelOption==="vertical"?'right-10 -top-0.5':'-left-11 top-11'}  p-1 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 w-32`}>
                                 <div>
                                     <small className='font-bold text-xs'>Background Color</small>
                                     <input 
@@ -460,9 +571,9 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                     <div className='relative'>
                         <button                         
                             ref={pencilButtonRef}
-                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-blue-500 hover:text-white p-2 ${activeButton==="pencil" ? 'bg-blue-200' : ''} `}
-                            onTouchStart={() => { setToDraw(); toggleControls();setBackgroundControl(false);setShowSettingsDropdown(false); handleButtonClick("pencil") }}
-                            onClick={() => { setToDraw(); toggleControls();setBackgroundControl(false);setShowSettingsDropdown(false); handleButtonClick("pencil") }}
+                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-black p-2 ${activeButton==="pencil" ? 'bg-black/60 text-white' : ''} `}
+                            onTouchStart={() => { setToDraw(); togglePenControl();setBackgroundControl(false);setShowSettingsDropdown(false); handleButtonClick("pencil") }}
+                            onClick={() => { setToDraw(); togglePenControl();setBackgroundControl(false);setShowSettingsDropdown(false); handleButtonClick("pencil") }}
                             aria-label="Pencil tool"
                         >
                         <IoPencil />
@@ -485,8 +596,8 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                             </div>
                         )}
 
-                        {showControls && (
-                            <div className={`absolute ${drawerPanelOption==="vertical"?'right-10 -top-0.5 w-14':'top-[3rem] -right-0.5 w-10'} p-1 rounded bg-blue-200`}>
+                        {penControl && (
+                            <div className={`absolute ${drawerPanelOption==="vertical"?'right-10 -top-0.5 w-32':'top-[3rem] -right-0.5 w-10'} p-1 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5`}>
                                 <div className='text-left'>
                                     <input 
                                         type="color" 
@@ -504,18 +615,87 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                     <div className='relative'>
                         <button                         
                            
-                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-blue-500 hover:text-white p-2 ${activeButton==="shape_tools" ? 'bg-blue-200' : ''} `}
+                            className={`cursor-pointer text-lg align-middle text-center rounded-md hover:bg-black hover:text-white p-2 ${activeButton==="shape_tools" ? 'bg-black/60 text-white' : ''} `}
                             onTouchStart={() => {handleButtonClick("shape_tools") }}
                             onClick={() => {handleButtonClick("shape_tools") }}
                             aria-label="Shape tool"
                         >
                            {shuffledShapes[currentShapeIndex]}
                         </button>
+                        {shapeControl && (
+                            <div className={`absolute ${drawerPanelOption==="vertical"?'right-10 -top-0.5':'-left-11 top-11'}  p-1 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 w-32`}>
+                                <div>
+                                    <small className='font-bold text-xs'>Shapes</small>
+                                    <div className='grid grid-cols-3 gap-2 px-2'>
+                                        <button 
+                                            onTouchStart={() => {handleButtonClick("triangle") }}
+                                            onClick={() => {handleButtonClick("triangle") }}
+                                            className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
+                                            <IoTriangle/>
+                                        </button>
+                                        <button 
+                                            onTouchStart={() => {handleButtonClick("triangle") }}
+                                            onClick={() => {handleButtonClick("triangle") }}
+                                            className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
+                                            <IoTriangleOutline/>
+                                        </button>
+                                        <button 
+                                            onTouchStart={() => {handleButtonClick("square_fill") }}
+                                            onClick={() => {handleButtonClick("square_fill") }}
+                                            className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
+                                            <IoSquare/>
+                                        </button>
+                                        <button 
+                                            onTouchStart={() => {handleButtonClick("square_stroke") }}
+                                            onClick={() => {handleButtonClick("square_stroke") }}
+                                            className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
+                                            <IoSquareOutline/>
+                                        </button>
+                                        <button 
+                                            onTouchStart={() => {handleButtonClick("rectangle_fill") }}
+                                            onClick={() => {handleButtonClick("rectangle_fill") }}
+                                            className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
+                                            <BiSolidRectangle/>
+                                        </button>
+                                        <button 
+                                            onTouchStart={() => {handleButtonClick("rectangle_stroke") }}
+                                            onClick={() => {handleButtonClick("rectangle_stroke") }}
+                                            className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
+                                            <BiRectangle/>
+                                        </button>
+                                        <button 
+                                            onTouchStart={() => {handleButtonClick("circle_stroke") }}
+                                            onClick={() => {handleButtonClick("circle_stroke") }}
+                                            className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
+                                            <BiCircle/>
+                                        </button>
+                                        <button 
+                                            onTouchStart={() => {handleButtonClick("circle_fill") }}
+                                            onClick={() => {handleButtonClick("circle_fill") }}
+                                            className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
+                                            <BiSolidCircle/>
+                                        </button>
+                                        <button 
+                                            onTouchStart={() => {handleButtonClick("star") }}
+                                            onClick={() => {handleButtonClick("star") }}
+                                            className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
+                                            <BiStar/>
+                                        </button>
+                                        <button 
+                                            onTouchStart={() => {handleButtonClick("star") }}
+                                            onClick={() => {handleButtonClick("star") }}
+                                            className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
+                                            <BiSolidStar/>
+                                        </button>
+                                    </div>
+                                </div> 
+                                                             
+                            </div>
+                        )}
                     </div>
                     <div className='relative'>
-                        <button                         
-                           
-                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-blue-500 hover:text-white p-2 ${activeButton==="image_tools" ? 'bg-blue-200' : ''} `}
+                        <button 
+                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-black hover:text-white p-2 ${activeButton==="image_tools" ? 'bg-blue-200' : ''} `}
                             onTouchStart={() => {handleButtonClick("image_tools") }}
                             onClick={() => {handleButtonClick("image_tools") }}
                             aria-label="Image tools"
@@ -526,7 +706,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                     <div className='relative'>
                         <button                         
                            
-                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-blue-500 hover:text-white p-2 ${activeButton==="text_area" ? 'bg-blue-200' : ''} `}
+                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-black hover:text-white p-2 ${activeButton==="text_area" ? 'bg-black/60 text-white' : ''} `}
                             onTouchStart={() => {handleButtonClick("text_area") }}
                             onClick={() => {handleButtonClick("text_area") }}
                             aria-label="Text area"
@@ -543,9 +723,9 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                 <div className={`flex ${drawerPanelOption==="vertical"?'flex-col':''}  gap-5`}>
                     <div>
                         <button 
-                            className={`cursor-pointer text-lg p-2 rounded  hover:bg-blue-500 hover:text-white ${activeButton=="eraser" ? 'bg-blue-200' : ''}`}
-                            onClick={() => { setToErase(); setShowControls(false);setShowSettingsDropdown(false); handleButtonClick("eraser") }}
-                            onTouchStart={() => { setToErase(); setShowControls(false);setShowSettingsDropdown(false); handleButtonClick("eraser") }}
+                            className={`cursor-pointer text-lg p-2 rounded  hover:bg-black hover:text-white ${activeButton=="eraser" ? 'bg-black/60 text-white' : ''}`}
+                            onClick={() => { setToErase(); setPenControl(false);setShowSettingsDropdown(false); handleButtonClick("eraser") }}
+                            onTouchStart={() => { setToErase(); setPenControl(false);setShowSettingsDropdown(false); handleButtonClick("eraser") }}
                             aria-label="Eraser tool"
                         >
                             <BsEraser />
@@ -555,7 +735,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                             <input 
                                 type="range" 
                                 min={1} 
-                                max={20}
+                                max={100}
                                 name="pen_size" 
                                 id="pen_size" 
                                 value={penSize}
@@ -571,7 +751,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
 
                     <div>
                         <button 
-                            className={`cursor-pointer text-lg p-2 rounded hover:bg-blue-500 ${activeButton=="clear_canva" ? 'bg-blue-200' : ''} hover:text-white`}
+                            className={`cursor-pointer text-lg p-2 rounded hover:bg-black hover:text-white ${activeButton=="clear_canva" ? 'bg-black/60 text-white' : ''} hover:text-white`}
                             onClick={() => { clearCanvas(); handleButtonClick("clear_canva") }}
                             onTouchStart={() => { clearCanvas(); handleButtonClick("clear_canva") }}
                             aria-label="Eraser tool"
@@ -582,26 +762,29 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                     <div className='relative'>
                         <button
                             onClick={() => { toggleSettingsDropdown(); handleButtonClick("settings") }}
-                            className={`${activeButton === "settings" ? 'bg-blue-200' : ''} ${drawerPanelOption === "vertical" ? 'mb-2' : 'mr-3'} left-0 cursor-pointer text-lg p-2 rounded hover:bg-blue-500`}
+                            onTouchStart={() => { toggleSettingsDropdown(); handleButtonClick("settings") }}
+                            className={`${activeButton === "settings" ? 'bg-black/60 text-white' : ''} ${drawerPanelOption === "vertical" ? 'mb-2' : 'mr-3'} left-0 cursor-pointer text-lg p-2 rounded hover:bg-black hover:text-white`}
                         >
                             <IoSettings />
                         </button>
                         {showSettingsDropdown && (
-                            <div className={`non-draggable absolute ${drawerPanelOption === "vertical" ? 'right-10 -top-10 w-48' : 'w-[200px] right-0'} mt-2 text-center rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5`}>
-                            <div className='font-semibold p-2 border-b-1'>Settings</div>
-                            <hr />
-                            <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
-                                <button className="flex justify-between place-items-center w-[100%] px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem">
-                                <label htmlFor='window_scroll'>Window scroll</label>
-                                <input type="checkbox" onChange={handleSetWindowScroll} name="window_scroll" id="window_scroll" />
-                                </button>
+                            <div className={`non-draggable absolute ${drawerPanelOption === "vertical" ? 'right-10 -top-10 w-32' : 'w-[200px] right-0'} text-xs mt-2 text-center rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5`}>
+                                <div className='font-semibold p-2 border-b-1'>Settings</div>
+                                <hr />
+                                <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+                                    <button className="flex justify-between place-items-center  w-[100%] px-4 py-2 text-xs text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem">
+                                    <label htmlFor='window_scroll'>Window scroll</label>
+                                    <input type="checkbox" onChange={handleSetWindowScroll} name="window_scroll" id="window_scroll" />
+                                    </button>
                                 </div>
                             </div>
                         )}
                     </div>
   
                 </div>
+                <button onTouchStart={()=>{setDrawerPanelOption(drawerPanelOption=="vertical"?"horizontal":"vertical")}} onClick={()=>{setDrawerPanelOption(drawerPanelOption=="vertical"?"horizontal":"vertical")}} className={` ${drawerPanelOption==="vertical"?'w-10 h-3 -mb-4':'h-10 w-2.5 -mr-3 '} border-white border-[1px] rounded-sm bg-black`}></button> 
             </div>
+           
         </Draggable>
     </div>
     </div>

@@ -1,13 +1,18 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { ShapeButtonProps } from '../Types';
 import { BsEraser } from 'react-icons/bs';
 
 const CursorCircle: React.FC<{ shape: ShapeButtonProps['activeButton'] }> = ({ shape }) => {
     const [position, setPosition] = useState({ x: 0, y: 0 });
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [offSet, setOffset] = useState({ x: 0, y: 0 });
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [coordinates, setCoordinate] = useState<object>({x:0,y:0,offsetX:0,offsetY:0});
+  
 
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
+            console.log("Mouse Offset:",getCoordinates)
             setPosition({ x: e.clientX, y: e.clientY });
             setOffset({ x: e.offsetX, y: e.offsetY });
             
@@ -17,22 +22,47 @@ const CursorCircle: React.FC<{ shape: ShapeButtonProps['activeButton'] }> = ({ s
         // window.removeEventListener("mousemove",handleMouseMove);
     }, [])
 
+    const getCoordinates = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+        const container = containerRef.current;
+        const canvas = canvasRef.current;
+        if (!container || !canvas) return { offsetX: 0, offsetY: 0 };
+
+        const rect = canvas.getBoundingClientRect();
+        if ('touches' in event) {
+            const touch = event.touches[0];
+            setCoordinate({x:touch.clientX,y:touch.clientY})
+            return {
+                offsetX: touch.clientX - rect.left + container.scrollLeft,
+                offsetY: touch.clientY - rect.top + container.scrollTop
+            };
+        } else {
+            setCoordinate({x:event.clientX,y:event.clientY})
+            
+            return {
+                offsetX: event.clientX - rect.left + container.scrollLeft,
+                offsetY: event.clientY - rect.top + container.scrollTop
+            };
+        }
+    };
+
     // Uncomment this to let the info box move along with cursor
   
-    // useEffect(() => {
-    //     const animate = () => {
-    //         requestAnimationFrame(animate);
-    //         const circle = document.getElementById('cursor-circle');
-
-    //         if (circle) {
-    //             circle.style.transform = `translate(${position.x}px, ${position.y}px)`;
-
+    // if (shape==="eraser") {        
+    //     useEffect(() => {
+    //         const animate = () => {
+    //             requestAnimationFrame(animate);
+    //             const circle = document.getElementById('cursor-circle');
+                
+    //             if (circle) {
+    //                 circle.style.transform = `translate(${position.x}px, ${position.y}px)`;
+                    
+    //             }
     //         }
-    //     }
-
-    //     animate()
-    // }, [position])
-    
+            
+    //         animate()
+    //     }, [position])
+        
+    // }
    
 
 
