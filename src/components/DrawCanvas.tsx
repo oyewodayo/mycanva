@@ -6,10 +6,11 @@ import { IoAddCircle, IoImage, IoPencil, IoSettings, IoSquare, IoSquareOutline, 
 import { TbBackground } from 'react-icons/tb';
 import CursorCircle from './CursorCircle';
 import { DrawCanvasProps } from '../Types';
-import { BiCircle, BiRectangle, BiSolidCircle, BiSolidRectangle, BiSolidStar, BiStar } from 'react-icons/bi';
+import { BiCircle, BiRectangle, BiRuler, BiSolidCircle, BiSolidRectangle, BiSolidStar, BiStar } from 'react-icons/bi';
+import { MdOutlineHorizontalRule } from 'react-icons/md';
 
 
-const shapes = [<IoTriangle key="triangle" />, <IoAddCircle key="addCircle" />, <IoSquare key="square" />];
+const shapes = [<IoTriangle key="triangle" className='z-0' />, <IoAddCircle key="addCircle" className='z-0' />, <IoSquare key="square" className='z-0' />];
 
 function shuffleArray<T>(array: T[]): T[] {
   for (let i = array.length - 1; i > 0; i--) {
@@ -73,17 +74,26 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
 
         if (buttonName === "pencil") {
             setToDraw();
+            setShapeControl(false);
         } else if (buttonName === "eraser") {
             setToErase();
+            setShowSettingsDropdown(false)
+        } else if (buttonName === "image_tools") {
+            setShapeControl(false);
+            setShowSettingsDropdown(false)
+        } else if (buttonName === "settings") {
+            setShapeControl(false);
         } else if (buttonName === "shape_tools") {
             setShapeControl(!shapeControl);
+            setShowSettingsDropdown(false)
         } else if (buttonName.includes("triangle") || buttonName.includes("square") || 
                    buttonName.includes("rectangle") || buttonName.includes("circle") || 
+                   buttonName.includes("line") || 
                    buttonName.includes("star")) {
             setCurrentShape(buttonName);
             setShapeControl(false);
+            setShowSettingsDropdown(false)
         }
-
         setBackgroundControl(buttonName === "background");
         setPenControl(buttonName === "pencil");
     };
@@ -129,27 +139,28 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
 
     const handlePenSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newSize = parseInt(e.target.value);
+        console.log(newSize)
         setPenSize(newSize);
         if (contextRef.current) {
             contextRef.current.lineWidth = newSize;
         }
     }
     
-    const initializeCanvas = useCallback(()=>{
+    const initializeCanvas = useCallback(() => {
         const canvas = canvasRef.current;
-        if (canvas) {            
-            canvas.width = (window.innerWidth );  // Set a larger initial width
-            canvas.height = (window.innerWidth);  // Set a larger initial height
+        if (canvas) {
+            canvas.width = window.innerWidth;  // Set a larger initial width
+            canvas.height = window.innerWidth;  // Set a larger initial height
             const context = canvas.getContext("2d");
-            if (context) {                
+            if (context) {
                 context.lineCap = "round";
                 context.strokeStyle = initialPenColor;
                 context.lineWidth = initialLineWidth;
             }
             contextRef.current = context;
         }
-    },[initialPenColor,initialLineWidth])
-
+    }, [initialPenColor, initialLineWidth]);
+    
 
     useEffect(()=>{
         initializeCanvas();
@@ -283,26 +294,30 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
     const startDrawing = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         event.preventDefault();
         const { offsetX, offsetY } = getCoordinates(event);
-
+    
         if (contextRef.current) {
             contextRef.current.beginPath();
             contextRef.current.moveTo(offsetX, offsetY);
         }
-
+    
         lastPositionRef.current = { x: offsetX, y: offsetY };
         setIsDrawing(true);
+        setShapeControl(false);
+        setShowSettingsDropdown(false)
     };
-
 
     const stopDrawing = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         event.preventDefault();
         if (isDrawing && contextRef.current) {
             contextRef.current.closePath();
-            setIsDrawing(true);
+            if (currentShape) {
+                const { offsetX, offsetY } = getCoordinates(event);
+                drawShape(lastPositionRef.current!.x, lastPositionRef.current!.y, offsetX, offsetY);
+            }
+            setIsDrawing(false);
         }
         lastPositionRef.current = null;
     };
-
 
 
     const clearCanvas = ()=>{
@@ -381,15 +396,21 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
     // drawGrid()
 
     const drawShape = useCallback((startX: number, startY: number, endX: number, endY: number) => {
+        
         if (!currentShape || !contextRef.current) return;
 
-        const ctx = contextRef.current;
-        ctx.beginPath();
+            const ctx = contextRef.current;
+            ctx.beginPath();
 
-        const width = endX - startX;
-        const height = endY - startY;
+            const width = endX - startX;
+            const height = endY - startY;
 
-        switch (currentShape) {
+            switch (currentShape) {
+            case 'line':
+            // For pencil, we'll draw a line from the start point to the end point
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            break;
             case 'triangle':
             case 'triangle_outline':
                 ctx.moveTo(startX + width / 2, startY);
@@ -399,8 +420,6 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                 break;
             case 'square_fill':
             case 'square_stroke':
-                ctx.rect(startX, startY, width, height);
-                break;
             case 'rectangle_fill':
             case 'rectangle_stroke':
                 ctx.rect(startX, startY, width, height);
@@ -414,9 +433,10 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                 drawStar(ctx, startX + width / 2, startY + height / 2, 5, Math.min(Math.abs(width), Math.abs(height)) / 2, Math.min(Math.abs(width), Math.abs(height)) / 4);
                 break;
         }
-
+    
         if (currentShape.includes('fill')) {
             ctx.fill();
+            ctx.fillStyle= penColor;
         } else {
             ctx.stroke();
         }
@@ -427,26 +447,24 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
     const draw = useCallback((event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         event.preventDefault();
         if (!isDrawing) return;
-
+    
         const { offsetX, offsetY } = getCoordinates(event);
         if (contextRef.current && lastPositionRef.current) {
-            if (currentShape) {
-                // For shape drawing, we'll use the initial click position and current position
-                drawShape(lastPositionRef.current.x, lastPositionRef.current.y, offsetX, offsetY);
-            } else {
+            if (!currentShape) {
                 // Freehand drawing
                 contextRef.current.lineTo(offsetX, offsetY);
                 contextRef.current.stroke();
             }
         }
-    }, [isDrawing, currentShape,getCoordinates, resizeCanvasIfNeeded, scrollIfNeeded, drawShape]);
+    }, [isDrawing, currentShape]);
 
+    
     const drawStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, spikes: number, outerRadius: number, innerRadius: number) => {
         let rot = Math.PI / 2 * 3;
         let x = cx;
         let y = cy;
         let step = Math.PI / spikes;
-
+    
         ctx.beginPath();
         ctx.moveTo(cx, cy - outerRadius);
         for (let i = 0; i < spikes; i++) {
@@ -454,7 +472,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
             y = cy + Math.sin(rot) * outerRadius;
             ctx.lineTo(x, y);
             rot += step;
-
+    
             x = cx + Math.cos(rot) * innerRadius;
             y = cy + Math.sin(rot) * innerRadius;
             ctx.lineTo(x, y);
@@ -463,8 +481,6 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
         ctx.lineTo(cx, cy - outerRadius);
         ctx.closePath();
     };
-
-
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -534,7 +550,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
         </canvas>
 
         <Draggable key={"settings"} cancel=".non-draggable">
-            <div className={`${drawerPanelOption==="vertical"?'top-12 h-[65%] flex flex-col justify-between w-10 place-items-center text-center':'lg:w-[45%] md:w-[55%] sm:w-[100vw] w-[100vw] h-[12] flex justify-between place-items-center top-1 left-10'} rounded border absolute m-2 bg-white`}>
+            <div className={`${drawerPanelOption==="vertical"?'top-12 h-[65%] right-12 flex flex-col justify-between w-10 place-items-center text-center':'lg:w-[45%] md:w-[55%] sm:w-[100vw] w-[100vw] h-[12] flex justify-between place-items-center top-1 left-10'} rounded border absolute m-2 bg-white`}>
                 <button className={`cursor-move p-2 ${drawerPanelOption==="vertical"?'':'ml-2'} rounded text-lg hover:bg-black hover:text-white`}>
                     <GrDrag/>
                 </button>
@@ -548,7 +564,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                             <TbBackground/>
                         </button>
                         {backgroundControl && (
-                            <div className={`absolute ${drawerPanelOption==="vertical"?'right-10 -top-0.5':'-left-11 top-11'}  p-1 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 w-32`}>
+                            <div className={`absolute ${drawerPanelOption==="vertical"?'right-10 -top-0.5':'-left-11 top-11'}  p-1 rounded bg-blue-200 w-32`}>
                                 <div>
                                     <small className='font-bold text-xs'>Background Color</small>
                                     <input 
@@ -567,11 +583,20 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                             </div>
                         )}
                     </div>
-
+                        <div className={`${drawerPanelOption==="vertical"?"w-[100%] text-center":"h-[100%] text-center"}`}>
+                        <input 
+                            type="color" 
+                            name="pen_color" 
+                            id="pen_color" 
+                            value={penColor}
+                            onChange={handleColorChange}
+                            className={`non-draggable rounded outline-none bg-none ${drawerPanelOption==="vertical"?'h-6.5 w-full':'h-6.5 w-full'}`}
+                        />
+                        </div>
                     <div className='relative'>
                         <button                         
                             ref={pencilButtonRef}
-                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-black p-2 ${activeButton==="pencil" ? 'bg-black/60 text-white' : ''} `}
+                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-black hover:text-white p-2 ${activeButton==="pencil" ? 'bg-black/60 text-white' : ''} `}
                             onTouchStart={() => { setToDraw(); togglePenControl();setBackgroundControl(false);setShowSettingsDropdown(false); handleButtonClick("pencil") }}
                             onClick={() => { setToDraw(); togglePenControl();setBackgroundControl(false);setShowSettingsDropdown(false); handleButtonClick("pencil") }}
                             aria-label="Pencil tool"
@@ -596,26 +621,11 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                             </div>
                         )}
 
-                        {penControl && (
-                            <div className={`absolute ${drawerPanelOption==="vertical"?'right-10 -top-0.5 w-32':'top-[3rem] -right-0.5 w-10'} p-1 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5`}>
-                                <div className='text-left'>
-                                    <input 
-                                        type="color" 
-                                        name="pen_color" 
-                                        id="pen_color" 
-                                        value={penColor}
-                                        onChange={handleColorChange}
-                                        className={`non-draggable rounded outline-none bg-none ${drawerPanelOption==="vertical"?'h-6.5 w-full':'h-6.5 w-full'}`}
-                                    />
-                                </div>
-                                <div className='text-[8px] font-bold'>Size {penSize}</div>
-                            </div>
-                        )}
                     </div>
                     <div className='relative'>
                         <button                         
                            
-                            className={`cursor-pointer text-lg align-middle text-center rounded-md hover:bg-black hover:text-white p-2 ${activeButton==="shape_tools" ? 'bg-black/60 text-white' : ''} `}
+                            className={`cursor-pointer text-lg align-middle text-center rounded hover:bg-black hover:text-white p-2 ${activeButton==="shape_tools" ? 'bg-black/60 text-white' : ''} `}
                             onTouchStart={() => {handleButtonClick("shape_tools") }}
                             onClick={() => {handleButtonClick("shape_tools") }}
                             aria-label="Shape tool"
@@ -623,7 +633,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                            {shuffledShapes[currentShapeIndex]}
                         </button>
                         {shapeControl && (
-                            <div className={`absolute ${drawerPanelOption==="vertical"?'right-10 -top-0.5':'-left-11 top-11'}  p-1 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 w-32`}>
+                            <div className={`absolute ${drawerPanelOption==="vertical"?'right-10 -top-0.5':'-left-11 top-11'}  p-1 rounded bg-blue-200 w-32`}>
                                 <div>
                                     <small className='font-bold text-xs'>Shapes</small>
                                     <div className='grid grid-cols-3 gap-2 px-2'>
@@ -687,6 +697,12 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                                             className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
                                             <BiSolidStar/>
                                         </button>
+                                        <button 
+                                            onTouchStart={() => {handleButtonClick("line") }}
+                                            onClick={() => {handleButtonClick("line") }}
+                                            className={`text-2xl hover:bg-white flex justify-center p-1 rounded`}>
+                                            <MdOutlineHorizontalRule/>
+                                        </button>
                                     </div>
                                 </div> 
                                                              
@@ -724,8 +740,8 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                     <div>
                         <button 
                             className={`cursor-pointer text-lg p-2 rounded  hover:bg-black hover:text-white ${activeButton=="eraser" ? 'bg-black/60 text-white' : ''}`}
-                            onClick={() => { setToErase(); setPenControl(false);setShowSettingsDropdown(false); handleButtonClick("eraser") }}
-                            onTouchStart={() => { setToErase(); setPenControl(false);setShowSettingsDropdown(false); handleButtonClick("eraser") }}
+                            onClick={() => { setPenControl(false);setShowSettingsDropdown(false); handleButtonClick("eraser") }}
+                            onTouchStart={() => { setPenControl(false);setShowSettingsDropdown(false); handleButtonClick("eraser") }}
                             aria-label="Eraser tool"
                         >
                             <BsEraser />
@@ -768,14 +784,14 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                             <IoSettings />
                         </button>
                         {showSettingsDropdown && (
-                            <div className={`non-draggable absolute ${drawerPanelOption === "vertical" ? 'right-10 -top-10 w-32' : 'w-[200px] right-0'} text-xs mt-2 text-center rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5`}>
-                                <div className='font-semibold p-2 border-b-1'>Settings</div>
-                                <hr />
-                                <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
-                                    <button className="flex justify-between place-items-center  w-[100%] px-4 py-2 text-xs text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem">
-                                    <label htmlFor='window_scroll'>Window scroll</label>
-                                    <input type="checkbox" onChange={handleSetWindowScroll} name="window_scroll" id="window_scroll" />
-                                    </button>
+                            <div className={`non-draggable absolute ${drawerPanelOption === "vertical" ? 'right-10 -top-10 w-32' : 'w-[200px] right-0'} text-sm mt-2 text-center rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5`}>
+                            <div className='font-semibold p-2 border-b-1'>Settings</div>
+                            <hr />
+                            <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+                                <button className="flex justify-between place-items-center w-[100%] px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem">
+                                <label htmlFor='window_scroll'>Window scroll</label>
+                                <input type="checkbox" onChange={handleSetWindowScroll} name="window_scroll" id="window_scroll" />
+                                </button>
                                 </div>
                             </div>
                         )}
