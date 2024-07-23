@@ -34,7 +34,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
     const [penColor, setPenColor] = useState<string>(initialPenColor);
     const [backgroundColor, setBackgroundColor] = useState<string>(initialBackgroundColor);
     const [penSize, setPenSize] = useState(initialLineWidth);
-    const [penControl, setPenControl] = useState(false);
+    const [isPencilActive, setPenControl] = useState(false);
     const [backgroundControl, setBackgroundControl] = useState(false);
     const [drawerPanelOption, setDrawerPanelOption] = useState<string>("vertical");
     const [currentShape, setCurrentShape] = useState<string | null>(null);
@@ -48,12 +48,11 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
 
     const pencilButtonRef = useRef<HTMLButtonElement | null>(null);
 
-    const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
-   
+    const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);   
     const [coordinates, setCoordinate] = useState<object>({x:0,y:0,offsetX:0,offsetY:0});
     const [shapeControl, setShapeControl] = useState(false);
-  
-
+    const [canvasSnapshot, setCanvasSnapshot] = useState<ImageData | null>(null);
+    const [isDownload, setIsDownload] = useState(false);
 
     useEffect(() => {
         const shuffled = shuffleArray([...shapes]);
@@ -74,6 +73,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
 
         if (buttonName === "pencil") {
             setToDraw();
+            setCurrentShape(null);
             setShapeControl(false);
         } else if (buttonName === "eraser") {
             setToErase();
@@ -100,7 +100,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
 
 
     const togglePenControl = () => {
-        setPenControl(!penControl);
+        setPenControl(!isPencilActive);
     };
 
 
@@ -158,9 +158,29 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                 context.lineWidth = initialLineWidth;
             }
             contextRef.current = context;
+            loadCanvasData();
         }
     }, [initialPenColor, initialLineWidth]);
     
+
+    const saveCanvasData = () => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const canvasData = canvas.toDataURL();
+            localStorage.setItem('canvasData', canvasData);
+        }
+    };
+
+    const loadCanvasData = () => {
+        const canvasData = localStorage.getItem('canvasData');
+        if (canvasData && contextRef.current) {
+            const image = new Image();
+            image.src = canvasData;
+            image.onload = () => {
+                contextRef.current?.drawImage(image, 0, 0);
+            };
+        }
+    };
 
     useEffect(()=>{
         initializeCanvas();
@@ -294,13 +314,19 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
     const startDrawing = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         event.preventDefault();
         const { offsetX, offsetY } = getCoordinates(event);
+      
     
         if (contextRef.current) {
+            setCanvasSnapshot(contextRef.current.getImageData(0, 0, contextRef.current.canvas.width, contextRef.current.canvas.height));
+          
             contextRef.current.beginPath();
             contextRef.current.moveTo(offsetX, offsetY);
+         
         }
     
         lastPositionRef.current = { x: offsetX, y: offsetY };
+
+
         setIsDrawing(true);
         setShapeControl(false);
         setShowSettingsDropdown(false)
@@ -315,8 +341,10 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                 drawShape(lastPositionRef.current!.x, lastPositionRef.current!.y, offsetX, offsetY);
             }
             setIsDrawing(false);
+            saveCanvasData();
         }
         lastPositionRef.current = null;
+        setCanvasSnapshot(null);
     };
 
 
@@ -325,8 +353,11 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
             
             contextRef.current.clearRect(0, 0, contextRef.current.canvas.width,contextRef.current.canvas.height);
             setIsDrawing(false);
+            localStorage.removeItem('canvasData');
         }
     }
+
+
     const toggleSettingsDropdown = () => {
         setShowSettingsDropdown(!showSettingsDropdown);
     }
@@ -435,28 +466,32 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
         }
     
         if (currentShape.includes('fill')) {
-            ctx.fill();
             ctx.fillStyle= penColor;
+            ctx.fill();
         } else {
             ctx.stroke();
         }
-    }, [currentShape]);
+    }, [currentShape,penColor]);
 
 
     
     const draw = useCallback((event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         event.preventDefault();
         if (!isDrawing) return;
-    
+
         const { offsetX, offsetY } = getCoordinates(event);
         if (contextRef.current && lastPositionRef.current) {
-            if (!currentShape) {
-                // Freehand drawing
+            if (canvasSnapshot) {
+                contextRef.current.putImageData(canvasSnapshot, 0, 0);
+            }
+            if (currentShape) {
+                drawShape(lastPositionRef.current.x, lastPositionRef.current.y, offsetX, offsetY);
+            } else {
                 contextRef.current.lineTo(offsetX, offsetY);
                 contextRef.current.stroke();
             }
         }
-    }, [isDrawing, currentShape]);
+    }, [isDrawing, currentShape, canvasSnapshot, drawShape]);
 
     
     const drawStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, spikes: number, outerRadius: number, innerRadius: number) => {
@@ -523,21 +558,40 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
         
     */
 
-//    drawShape(100,0.5,6)
+    //    drawShape(100,0.5,6)
  
+    const saveCanvasToImage = (event: React.MouseEvent<HTMLButtonElement>) => {
+        const buttonId = event.currentTarget.id;
+        const link = document.createElement("a");
+        link.download = `briefpen_${Date.now()}.${buttonId}`;
+
+        if (canvasRef.current) {
+            link.href = canvasRef.current.toDataURL(`image/${buttonId}`);
+            link.click();
+        }
+    };
+
+    const toggleDownload = ()=>{
+        setIsDownload(!isDownload);
+    }
 
   return (
     <div className={`flex relative"`} style={{ backgroundColor: backgroundColor }}>
         <CursorCircle shape={activeButton}/>
-    <div className='absolute'>
-        <button  className='text-white bg-black rounded p-1 my-5 mx-3'>
+    <div className='absolute flex place-items-center'>
+        <button onClick={toggleDownload} className='text-white bg-black rounded p-1 my-5 mx-3'>
         <BsCloudDownloadFill className='text-xl '/>
         </button>
+        <div className={`bg-black rounded text-white transition-transform text-sm px-1 h-8 flex gap-4 ${isDownload?"":"hidden"}`}>
+            <button onClick={saveCanvasToImage} id='png' className='border-r-white border-r-2 px-3 hover: rounded hover:bg-white hover:text-black'>PNG</button>
+            <button onClick={saveCanvasToImage} id='jpg' className='border-r-white border-r-2 px-3 rounded hover:bg-white hover:text-black'>JPG</button>
+            <button onClick={saveCanvasToImage} id='webp' className='px-3 rounded hover:bg-white hover:text-black'>WEBP</button>
+        </div>
     </div>
         
-   <div ref={containerRef} className={`h-screen overflow-auto`}>
+   <div ref={containerRef} className={`h-screen overflow-hidden`}>
     <canvas 
-            className={`${windowScroll?'min-w-full min-h-full':''}`}
+            className={`min-w-full min-h-full`}
             ref={canvasRef}
             onMouseDown={startDrawing}
             onMouseMove={draw}
@@ -550,7 +604,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
         </canvas>
 
         <Draggable key={"settings"} cancel=".non-draggable">
-            <div className={`${drawerPanelOption==="vertical"?'top-12 h-[65%] right-12 flex flex-col justify-between w-10 place-items-center text-center':'lg:w-[45%] md:w-[55%] sm:w-[100vw] w-[100vw] h-[12] flex justify-between place-items-center top-1 left-10'} rounded border absolute m-2 bg-white`}>
+            <div className={`${drawerPanelOption==="vertical"?'top-12 h-[65%] right-4 flex flex-col justify-between w-10 place-items-center text-center':'lg:w-[45%] md:w-[55%] sm:w-[100vw] w-[100vw] h-[12] flex justify-between place-items-center top-1 left-10'} rounded border absolute m-2 bg-white`}>
                 <button className={`cursor-move p-2 ${drawerPanelOption==="vertical"?'':'ml-2'} rounded text-lg hover:bg-black hover:text-white`}>
                     <GrDrag/>
                 </button>
@@ -589,6 +643,7 @@ const DrawCanvas = ({canvasWindowScroll=false,initialPenColor='#000000',initialB
                             name="pen_color" 
                             id="pen_color" 
                             value={penColor}
+                            title="Choose Fill Color"
                             onChange={handleColorChange}
                             className={`non-draggable rounded outline-none bg-none ${drawerPanelOption==="vertical"?'h-6.5 w-full':'h-6.5 w-full'}`}
                         />
